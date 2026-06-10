@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Spirometry Interpreter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Prompt', sans-serif; background-color: #f8fafc; }
+        .fade-in { animation: fadeIn 0.4s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="text-slate-700 min-h-screen flex items-center justify-center p-4">
+
+    <div class="max-w-lg w-full bg-white rounded-3xl shadow-sm border border-slate-100 p-6 md:p-8 overflow-hidden relative">
+        
+        <div class="text-center mb-8">
+            <div class="inline-block bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-medium mb-3">Spirometry App</div>
+            <h1 class="text-2xl font-semibold text-slate-800">การแปลผลสมรรถภาพปอด</h1>
+        </div>
+
+        <div id="progress-container" class="w-full bg-slate-100 rounded-full h-1.5 mb-8">
+            <div id="progress-bar" class="bg-blue-300 h-1.5 rounded-full transition-all duration-300" style="width: 25%"></div>
+        </div>
+
+        <div id="app-content" class="min-h-[200px] flex flex-col justify-center">
+            </div>
+
+        <div id="restart-container" class="mt-8 text-center hidden">
+            <button onclick="initApp()" class="text-sm text-slate-500 hover:text-blue-600 transition-colors underline decoration-slate-300 underline-offset-4">
+                เริ่มประเมินใหม่ (Start Over)
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        // State variables
+        let currentStep = 0;
+        let diagnosticData = {};
+
+        // DOM Elements
+        const contentDiv = document.getElementById('app-content');
+        const progressBar = document.getElementById('progress-bar');
+        const restartContainer = document.getElementById('restart-container');
+
+        // Initialize App
+        function initApp() {
+            currentStep = 1;
+            diagnosticData = {};
+            restartContainer.classList.add('hidden');
+            renderStep1();
+        }
+
+        function updateProgress(percent) {
+            progressBar.style.width = percent + '%';
+        }
+
+        // --- Step 1: FEV1/FVC ---
+        function renderStep1() {
+            updateProgress(25);
+            contentDiv.innerHTML = `
+                <div class="fade-in">
+                    <h2 class="text-lg font-medium text-center mb-6">1. ค่า <span class="font-semibold text-blue-600">FEV1 / FVC</span> เป็นอย่างไร?</h2>
+                    <div class="space-y-3">
+                        <button onclick="handleStep1('obstructive')" class="w-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-100 rounded-2xl p-4 transition-colors text-left flex justify-between items-center">
+                            <span>น้อยกว่า 70% (หรือ &lt; LLN)</span>
+                            <span class="text-xl">👉</span>
+                        </button>
+                        <button onclick="handleStep1('normal')" class="w-full bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-100 rounded-2xl p-4 transition-colors text-left flex justify-between items-center">
+                            <span>มากกว่า หรือ เท่ากับ 70%</span>
+                            <span class="text-xl">👉</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function handleStep1(result) {
+            diagnosticData.type = result; // 'obstructive' or 'normal'
+            renderStep2();
+        }
+
+        // --- Step 2: FVC ---
+        function renderStep2() {
+            updateProgress(50);
+            contentDiv.innerHTML = `
+                <div class="fade-in">
+                    <h2 class="text-lg font-medium text-center mb-6">2. ค่า <span class="font-semibold text-blue-600">FVC</span> เป็นอย่างไร?</h2>
+                    <div class="space-y-3">
+                        <button onclick="handleStep2('high')" class="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-2xl p-4 transition-colors text-left">
+                            <span class="font-medium">≥ 80%</span> ของค่าพยากรณ์
+                        </button>
+                        <button onclick="handleStep2('low')" class="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-2xl p-4 transition-colors text-left">
+                            <span class="font-medium">&lt; 80%</span> ของค่าพยากรณ์
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function handleStep2(fvcResult) {
+            diagnosticData.fvc = fvcResult; // 'high' or 'low'
+            
+            if (diagnosticData.type === 'normal') {
+                // If FEV1/FVC was normal, we can conclude the result now
+                showFinalResult();
+            } else {
+                // If Obstructive, proceed to severity
+                renderStep3();
+            }
+        }
+
+        // --- Step 3: Severity (Only for Obstructive) ---
+        function renderStep3() {
+            updateProgress(75);
+            contentDiv.innerHTML = `
+                <div class="fade-in">
+                    <h2 class="text-lg font-medium text-center mb-2">3. ประเมินความรุนแรง</h2>
+                    <p class="text-sm text-slate-500 text-center mb-6">ค่า <span class="font-semibold">FEV1 (% Predicted)</span> อยู่ในช่วงใด?</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="handleStep3('Mild')" class="bg-slate-50 hover:bg-blue-50 text-slate-700 border border-slate-200 rounded-2xl p-3 transition-colors">
+                            ≥ 80%<br><span class="text-xs text-slate-500">Mild</span>
+                        </button>
+                        <button onclick="handleStep3('Moderate')" class="bg-slate-50 hover:bg-blue-50 text-slate-700 border border-slate-200 rounded-2xl p-3 transition-colors">
+                            50 - 79%<br><span class="text-xs text-slate-500">Moderate</span>
+                        </button>
+                        <button onclick="handleStep3('Severe')" class="bg-slate-50 hover:bg-blue-50 text-slate-700 border border-slate-200 rounded-2xl p-3 transition-colors">
+                            30 - 49%<br><span class="text-xs text-slate-500">Severe</span>
+                        </button>
+                        <button onclick="handleStep3('Very Severe')" class="bg-slate-50 hover:bg-blue-50 text-slate-700 border border-slate-200 rounded-2xl p-3 transition-colors">
+                            &lt; 30%<br><span class="text-xs text-slate-500">Very Severe</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function handleStep3(severity) {
+            diagnosticData.severity = severity;
+            renderStep4();
+        }
+
+        // --- Step 4: Reversibility (Only for Obstructive) ---
+        function renderStep4() {
+            updateProgress(90);
+            contentDiv.innerHTML = `
+                <div class="fade-in">
+                    <h2 class="text-lg font-medium text-center mb-2">4. การตอบสนองต่อยา</h2>
+                    <p class="text-sm text-slate-500 text-center mb-6">หลังพ่นยาขยายหลอดลม ค่า FEV1 หรือ FVC เพิ่มขึ้น <br><span class="font-semibold text-blue-600">≥ 12% และ ≥ 200 ml</span> หรือไม่?</p>
+                    <div class="space-y-3">
+                        <button onclick="handleStep4('Positive')" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 rounded-2xl p-4 transition-colors">
+                            ใช่ (Positive Reversibility)
+                        </button>
+                        <button onclick="handleStep4('Negative')" class="w-full bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-2xl p-4 transition-colors">
+                            ไม่ใช่ (Negative Reversibility)
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function handleStep4(reversibility) {
+            diagnosticData.reversibility = reversibility;
+            showFinalResult();
+        }
+
+        // --- Final Result ---
+        function showFinalResult() {
+            updateProgress(100);
+            restartContainer.classList.remove('hidden');
+
+            let resultTitle = "";
+            let resultDesc = "";
+            let colorClass = "";
+            let bgColor = "";
+
+            if (diagnosticData.type === 'normal') {
+                if (diagnosticData.fvc === 'high') {
+                    resultTitle = "Normal Spirometry";
+                    resultDesc = "ผลการตรวจสมรรถภาพปอดปกติ ✨";
+                    colorClass = "text-teal-600";
+                    bgColor = "bg-teal-50 border-teal-100";
+                } else {
+                    resultTitle = "Restrictive Defect";
+                    resultDesc = "สงสัยภาวะปอดขยายตัวจำกัด ⚠️<br><span class='text-sm mt-2 block text-slate-500'>*แนะนำให้ส่งตรวจ Lung Volume (TLC) เพิ่มเติมเพื่อยืนยันผล</span>";
+                    colorClass = "text-purple-600";
+                    bgColor = "bg-purple-50 border-purple-100";
+                }
+            } else {
+                // Obstructive Path
+                let defectType = (diagnosticData.fvc === 'high') ? "Obstructive Defect" : "Mixed Defect";
+                let revText = (diagnosticData.reversibility === 'Positive') ? "Positive Reversibility (นึกถึง Asthma)" : "Negative Reversibility (นึกถึง COPD)";
+                
+                resultTitle = defectType;
+                resultDesc = `
+                    <div class="text-left mt-2 space-y-2 text-sm text-slate-600">
+                        <p><b>ความรุนแรง:</b> ${diagnosticData.severity}</p>
+                        <p><b>การตอบสนองต่อยา:</b> ${revText}</p>
+                        ${diagnosticData.fvc === 'low' ? "<p class='text-xs text-orange-500 mt-2'>*Mixed Defect คือมีภาวะอุดกั้นร่วมกับภาวะจำกัดการขยายตัว</p>" : ""}
+                    </div>
+                `;
+                colorClass = "text-rose-600";
+                bgColor = "bg-rose-50 border-rose-100";
+            }
+
+            contentDiv.innerHTML = `
+                <div class="fade-in text-center">
+                    <p class="text-sm text-slate-400 mb-2">ผลการประเมิน</p>
+                    <div class="p-6 rounded-2xl border ${bgColor} shadow-sm">
+                        <h2 class="text-2xl font-semibold mb-3 ${colorClass}">${resultTitle}</h2>
+                        <div class="text-slate-700">${resultDesc}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Start the app on load
+        window.onload = initApp;
+
+    </script>
+</body>
+</html>
